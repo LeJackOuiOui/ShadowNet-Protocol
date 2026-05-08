@@ -33,18 +33,89 @@ class ShadowNetApp extends StatelessWidget {
   }
 }
 
-  // ── PANTALLA DE LA TERMINAL ────────────────────────────────────────────────
+// ── PANTALLA DE LA TERMINAL ────────────────────────────────────────────────
 
-  // ── AUTENTICACIÓN ────────────────────────────────────────────────────────
-  
-  // ── AUTODESTRUCCIÓN ──────────────────────────────────────────────────────
- 
-  // ── GEOLOCALIZACIÓN ──────────────────────────────────────────────────────
-  
-  // ── BUILD ────────────────────────────────────────────────────────────────
-  
-  // ── PANTALLA PRINCIPAL ───────────────────────────────────────────────────
-  
-  // ── PANTALLA DE BLOQUEO ──────────────────────────────────────────────────
-  
-  // ── PANTALLA DE AUTODESTRUCCIÓN ───────────────────────────────────────────
+// ── AUTENTICACIÓN ────────────────────────────────────────────────────────
+
+// ── AUTODESTRUCCIÓN ──────────────────────────────────────────────────────
+
+Future<void> _triggerSelfDestruct() async {
+  if (_isLocked) return;
+
+  setState(() {
+    _isLocked = true;
+    _lockSecondsRemaining = 5;
+  });
+
+  if (await Vibration.hasVibrator() ?? false) {
+    Vibration.vibrate(duration: 5000);
+  }
+
+  for (int i = 5; i > 0; i--) {
+    await Future.delayed(const Duration(seconds: 1));
+    if (mounted) setState(() => _lockSecondsRemaining = i - 1);
+  }
+
+  // Al terminar: desbloquea y resetea todo para poder reintentar
+  if (mounted) {
+    setState(() {
+      _isLocked = false;
+      _failedAttempts = 0;
+      _isProcessing = false;
+    });
+  }
+}
+
+// ── GEOLOCALIZACIÓN ──────────────────────────────────────────────────────
+
+// ── BUILD ────────────────────────────────────────────────────────────────
+
+// ── PANTALLA PRINCIPAL ───────────────────────────────────────────────────
+
+// ── PANTALLA DE BLOQUEO ──────────────────────────────────────────────────
+
+// ── PANTALLA DE AUTODESTRUCCIÓN ───────────────────────────────────────────
+Widget _buildAutodestruccionScreen() {
+  return Scaffold(
+    backgroundColor: Colors.red[900],
+    body: Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.white,
+            size: 60,
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            "⚠ PROTOCOLO DE\nAUTODESTRUCCIÓN INICIADO",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 2,
+              fontFamily: 'RobotoMono',
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            "$_lockSecondsRemaining",
+            style: const TextStyle(
+              fontSize: 80,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontFamily: 'RobotoMono',
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "SISTEMA SE REINICIA EN...",
+            style: TextStyle(color: Colors.white70, letterSpacing: 1.5),
+          ),
+        ],
+      ),
+    ),
+  );
+}
