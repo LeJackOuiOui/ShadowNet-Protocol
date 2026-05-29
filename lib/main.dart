@@ -11,8 +11,11 @@ void main() {
   runApp(const ShadowNetApp());
 }
 
+/// Enumeration of available agent factions in the network.
 enum Faction { hacker, enforcer, ghost }
 
+/// Main entry widget configuring Material 3 design parameters
+/// and real-time aesthetic mutations based on the active Faction.
 class ShadowNetApp extends StatefulWidget {
   const ShadowNetApp({super.key});
 
@@ -21,16 +24,18 @@ class ShadowNetApp extends StatefulWidget {
 }
 
 class _ShadowNetAppState extends State<ShadowNetApp> {
+  // Material 3 Dynamic Color state based on selected Faction
   Faction _currentFaction = Faction.hacker;
 
+  /// Returns the corresponding hexadecimal seed color code for each Faction.
   Color _getFactionColor(Faction faction) {
     switch (faction) {
       case Faction.hacker:
-        return const Color(0xFF00FF41);
+        return const Color(0xFF00FF41); // Phosphor Green
       case Faction.enforcer:
-        return const Color(0xFFFF3B30);
+        return const Color(0xFFFF3B30); // Tactical Red
       case Faction.ghost:
-        return const Color(0xFF00C6FF);
+        return const Color(0xFF00C6FF); // Stealth Neon Blue
     }
   }
 
@@ -50,6 +55,7 @@ class _ShadowNetAppState extends State<ShadowNetApp> {
           background: Colors.black,
         ),
         scaffoldBackgroundColor: Colors.black,
+        // Requirement: JetBrains Mono for High-Tech terminal aesthetics
         textTheme: GoogleFonts.jetBrainsMonoTextTheme(
           ThemeData.dark().textTheme,
         ).apply(bodyColor: seedColor, displayColor: seedColor),
@@ -64,6 +70,8 @@ class _ShadowNetAppState extends State<ShadowNetApp> {
   }
 }
 
+/// Primary operational dashboard interface featuring biometric security,
+/// and live tactical mission updates based on geofenced radar targets.
 class TerminalScreen extends StatefulWidget {
   final Faction currentFaction;
   final ValueChanged<Faction> onFactionChanged;
@@ -117,6 +125,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _authenticate();
   }
 
+  /// Triggers device native hardware interface to evaluate fingerprint validation.
+  /// Handles platform lockout states and sets limits on unverified operations.
   Future<void> _authenticate() async {
     if (_isProcessing || _isLocked) return;
     setState(() => _isProcessing = true);
@@ -163,6 +173,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
+  /// Controls transient hardware locks when OS level authentication rules block apps.
   Future<void> _handleSystemLock(bool isPermanent) async {
     if (!mounted) return;
     if (isPermanent) {
@@ -179,6 +190,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
+  /// Initializes hardware vibrator and blocks user interaction during automated reset sequences.
   Future<void> _triggerSelfDestruct() async {
     if (_isLocked) return;
     setState(() {
@@ -204,6 +216,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
+  /// Opens background satellite telemetry thread via spatial geolocation framework streams.
   void _initGeoRadar() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -228,6 +241,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     return _buildMainTerminal();
   }
 
+  /// Renders primary operation deck workspace UI modules.
   Widget _buildMainTerminal() {
     return Scaffold(
       appBar: AppBar(
@@ -241,8 +255,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         actions: [
           Semantics(
             button: true,
-            label:
-                "Botón: Finalizar misión y borrar rastro", // Requerimiento WCAG explícito
+            label: "Finalizar misión y borrar rastro", // WCAG Audit Requirement
             child: IconButton(
               icon: const Icon(Icons.power_settings_new),
               onPressed: () => setState(() => _isAuthenticated = false),
@@ -261,7 +274,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
               _buildCentralFactionLogo(),
               const SizedBox(height: 20),
               const Text(
-                ">>> SCANNING OPERATIONS RADAR...",
+                ">>>> SCANNING OPERATIONS RADAR...",
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
@@ -274,6 +287,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
+  /// Interactive segmented profile selector controlling active theme variables.
   Widget _buildFactionSelector() {
     return Semantics(
       label: "Selector de facciones dinámicas de agente",
@@ -296,6 +310,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
+  /// Evaluates active state enumeration to construct detailed non-visual graphic representations.
   Widget _buildCentralFactionLogo() {
     IconData factionIcon;
     String description;
@@ -321,7 +336,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     return Center(
       child: Semantics(
         image: true,
-        label: description,
+        label: description, // Accessibility mapping
         child: Icon(
           factionIcon,
           size: 100,
@@ -331,6 +346,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
+  /// Maps matrix indices into composite interactive data lists with spatial parameters.
   Widget _buildRadarList() {
     if (_currentPosition == null)
       return const Text("> ACQUIRING SATELLITE LINK...");
@@ -354,11 +370,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
           child: GestureDetector(
             onTap: () async {
               if (isAvailable) {
+                // Vibrar si está disponible (completada)
                 if (await Vibration.hasVibrator() ?? false) {
                   Vibration.vibrate(pattern: [0, 200, 200, 600, 200, 200]);
                 }
                 _completarMision();
               } else {
+                // Mostrar mensaje si no está completada
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -400,6 +418,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
+  /// Executes final success state operations and triggers customized Morse vibration pulses.
   void _completarMision() async {
     if (await Vibration.hasVibrator() ?? false) {
       Vibration.vibrate(pattern: [0, 200, 200, 600, 200, 200]);
@@ -411,6 +430,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
+  /// Security gate view blocking operations until biometric verification is accomplished.
   Widget _buildLockScreen() {
     return Scaffold(
       body: Center(
@@ -450,6 +470,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
+  /// Alarm interface active during structural state changes.
   Widget _buildSelfDestructScreen() {
     return Scaffold(
       backgroundColor: const Color(0xFF300000),
@@ -471,6 +492,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
+  /// Lower status banner generating parsed diagnostic metrics.
   Widget _buildFooter() {
     return Semantics(
       label: "Coordenadas de telemetría GPS del operador actual",
@@ -481,6 +503,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
+  /// Dispatches structured operational warnings forcing screen-reader announcements via live region flags.
   void _showAccessibleSnackBar(String executionMessage) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -1,6 +1,6 @@
-# 📂 REPORTE DE MISIÓN: PROTOCOLO SHADOWNET
+# 📂 SHADOWNET PROTOCOL — OPERACIÓN CAMALEÓN
 
-**ESTADO:** CLASIFICADO - SOLO PARA OJOS DE OPERADORES
+**ESTADO DE LA TERMINAL:** ACTUALIZADO M3 (MATERIAL 3 APPROVED)
 **AÑO:** 2084
 **ORIGEN:** Resistencia de Mosquera (Sector 04)
 
@@ -39,6 +39,24 @@ Para el correcto funcionamiento de esta terminal, el dispositivo debe contar con
 ## ⚠️ Protocolo de Autodestrucción
 
 Si el sistema detecta **3 intentos fallidos** de acceso biométrico, se activará un protocolo de seguridad que bloqueará la terminal y emitirá una vibración de alta frecuencia durante 5 segundos para alertar al Operador de una posible captura[cite: 1].
+
+## 🎨 Extracción Dinámica de SeedColor
+
+Para cumplir con los parámetros dinámicos del canal, la aplicación extrae la identidad cromática de la facción activa directamente mediante el generador de esquemas Material 3:
+
+- **Hacker:** Genera una paleta de alto contraste basada en Verde Fósforo (`0xFF00FF41`).
+- **Enforcer:** Despliega una alerta de combate utilizando Rojo Táctico (`0xFFFF3B30`).
+- **Ghost:** Aplica un camuflaje espectral mediante Azul Neón (`0xFF00C6FF`).
+
+El `ColorScheme.fromSeed` calcula automáticamente los tonos complementarios para componentes nativos (como contenedores de misiones, AppBars y botones) asegurando homogeneidad en la UI.
+
+## 👁️ Árbol de Semantics (Accesibilidad Operativa)
+
+Se reestructuró la terminal para evadir bloqueos de auditoría de hardware mediante la inyección estructurada de widgets `Semantics`:
+
+1. **Etiquetado de Botones Primitivos:** El botón de purga fue mapeado explícitamente para lectores de voz: _"Finalizar misión y borrar rastro"_.
+2. **Descripciones de Estado Dinámicas:** El logo hereda dinámicamente un tag descriptivo de la especialidad de la facción en curso.
+3. **Fusión de Contenedores:** La telemetría y lista de nodos agrupan sus textos hijos en un solo mensaje fluido para evitar lecturas fragmentadas en los lectores de pantalla.
 
 ## 🛰️ Instrucciones de Despliegue
 
