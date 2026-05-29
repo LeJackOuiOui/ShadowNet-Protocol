@@ -11,32 +11,68 @@ void main() {
   runApp(const ShadowNetApp());
 }
 
-class ShadowNetApp extends StatelessWidget {
+enum Faction { hacker, enforcer, ghost }
+
+class ShadowNetApp extends StatefulWidget {
   const ShadowNetApp({super.key});
 
   @override
+  State<ShadowNetApp> createState() => _ShadowNetAppState();
+}
+
+class _ShadowNetAppState extends State<ShadowNetApp> {
+  Faction _currentFaction = Faction.hacker;
+
+  Color _getFactionColor(Faction faction) {
+    switch (faction) {
+      case Faction.hacker:
+        return const Color(0xFF00FF41);
+      case Faction.enforcer:
+        return const Color(0xFFFF3B30);
+      case Faction.ghost:
+        return const Color(0xFF00C6FF);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final Color seedColor = _getFactionColor(_currentFaction);
+
     return MaterialApp(
       title: 'ShadowNet Protocol',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        useMaterial3: true,
         brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: seedColor,
+          brightness: Brightness.dark,
+          background: Colors.black,
+        ),
         scaffoldBackgroundColor: Colors.black,
-        textTheme: GoogleFonts.robotoMonoTextTheme(ThemeData.dark().textTheme)
-            .apply(
-              bodyColor: const Color(0xFF00FF41),
-              displayColor: const Color(0xFF00FF41),
-            ),
+        textTheme: GoogleFonts.jetBrainsMonoTextTheme(
+          ThemeData.dark().textTheme,
+        ).apply(bodyColor: seedColor, displayColor: seedColor),
       ),
-      home: const TerminalScreen(),
+      home: TerminalScreen(
+        currentFaction: _currentFaction,
+        onFactionChanged: (Faction newFaction) {
+          setState(() => _currentFaction = newFaction);
+        },
+      ),
     );
   }
 }
 
-// ── PANTALLA DE LA TERMINAL ──────────────────────────────────────────────
-
 class TerminalScreen extends StatefulWidget {
-  const TerminalScreen({super.key});
+  final Faction currentFaction;
+  final ValueChanged<Faction> onFactionChanged;
+
+  const TerminalScreen({
+    super.key,
+    required this.currentFaction,
+    required this.onFactionChanged,
+  });
 
   @override
   State<TerminalScreen> createState() => _TerminalScreenState();
@@ -46,30 +82,30 @@ class _TerminalScreenState extends State<TerminalScreen> {
   final LocalAuthentication auth = LocalAuthentication();
 
   bool _isAuthenticated = false;
-  bool _isLocked = false; // true = pantalla roja activa
-  bool _isProcessing = false; // true = diálogo biométrico abierto
-  int _failedAttempts = 0; // conteo real de veces que el usuario falló
+  bool _isLocked = false;
+  bool _isProcessing = false;
+  int _failedAttempts = 0;
   int _lockSecondsRemaining = 5;
-  int _systemLockSeconds = 0; // 0 = no hay bloqueo del sistema activo
+  int _systemLockSeconds = 0;
 
   Position? _currentPosition;
 
-  final List<Map<String, dynamic>> _nodos = [
+  final List<Map<String, dynamic>> _nodes = [
     {
-      'nombre': 'SENA Mosquera',
-      'mision': 'Hackear el servidor de notas',
+      'name': 'SENA Mosquera',
+      'mission': 'Hack student grade server',
       'lat': 4.6953,
       'lng': -74.2166,
     },
     {
-      'nombre': 'Parque Principal',
-      'mision': 'Interceptar señal de radio',
+      'name': 'Central Park',
+      'mission': 'Intercept radio frequencies',
       'lat': 4.7059,
       'lng': -74.2302,
     },
     {
-      'nombre': 'Zona Industrial',
-      'mision': 'Sabotaje de drones',
+      'name': 'Industrial Zone',
+      'mission': 'Drone system sabotage',
       'lat': 4.7200,
       'lng': -74.2000,
     },
@@ -81,20 +117,19 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _authenticate();
   }
 
-  // ── AUTENTICACIÓN ────────────────────────────────────────────────────────
   Future<void> _authenticate() async {
     if (_isProcessing || _isLocked) return;
     setState(() => _isProcessing = true);
 
     bool success = false;
-
-    final cancelTimer = Timer(const Duration(seconds: 8), () {
-      auth.stopAuthentication();
-    });
+    final cancelTimer = Timer(
+      const Duration(seconds: 8),
+      () => auth.stopAuthentication(),
+    );
 
     try {
       success = await auth.authenticate(
-        localizedReason: 'VALIDACIÓN DE ADN REQUERIDA — PROTOCOLO SHADOWNET',
+        localizedReason: 'DNA VALIDATION REQUIRED — SHADOWNET PROTOCOL',
         options: const AuthenticationOptions(
           stickyAuth: false,
           biometricOnly: true,
@@ -102,16 +137,12 @@ class _TerminalScreenState extends State<TerminalScreen> {
       );
     } on PlatformException catch (e) {
       success = false;
-
-      // Android bloqueó biométricamente — no contar como fallo tuyo
-      // ni permitir más intentos hasta que el sistema se desbloquee
       if (e.code == auth_error.lockedOut ||
           e.code == auth_error.permanentlyLockedOut) {
         cancelTimer.cancel();
         if (mounted) setState(() => _isProcessing = false);
-        // Mostrar mensaje y salir — no tocar _failedAttempts
-        _showSystemLockedMessage(e.code == auth_error.permanentlyLockedOut);
-        return; // ← corta aquí, no llega al bloque else de abajo
+        _handleSystemLock(e.code == auth_error.permanentlyLockedOut);
+        return;
       }
     } finally {
       cancelTimer.cancel();
@@ -125,50 +156,35 @@ class _TerminalScreenState extends State<TerminalScreen> {
         _isAuthenticated = true;
         _failedAttempts = 0;
       });
-      _iniciarGeoRadar();
+      _initGeoRadar();
     } else {
       setState(() => _failedAttempts++);
-      if (_failedAttempts >= 3) {
-        await _triggerSelfDestruct();
-      }
+      if (_failedAttempts >= 3) await _triggerSelfDestruct();
     }
   }
 
-  // Mensaje cuando Android bloqueó — no es fallo de tu app
-  Future<void> _showSystemLockedMessage(bool isPermanent) async {
+  Future<void> _handleSystemLock(bool isPermanent) async {
     if (!mounted) return;
-
     if (isPermanent) {
-      // Bloqueo permanente — no hay countdown, solo mensaje fijo
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          backgroundColor: Colors.deepOrange,
-          duration: Duration(seconds: 6),
           content: Text(
-            "> SISTEMA ANDROID BLOQUEADO\n> DESBLOQUEA EL TELÉFONO PRIMERO",
-            style: TextStyle(fontFamily: 'RobotoMono', fontSize: 12),
+            "HARDWARE CRITICAL LOCKOUT - CLEAR PHONE PASSCODE FIRST",
           ),
         ),
       );
       return;
     }
 
-    // Bloqueo temporal — countdown visible en pantalla
     setState(() => _systemLockSeconds = 30);
-
     for (int i = 30; i > 0; i--) {
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) setState(() => _systemLockSeconds = i - 1);
     }
-
-    // Al llegar a 0, limpia el estado
-    if (mounted) setState(() => _systemLockSeconds = 0);
   }
 
-  // ── AUTODESTRUCCIÓN ──────────────────────────────────────────────────────
   Future<void> _triggerSelfDestruct() async {
     if (_isLocked) return;
-
     setState(() {
       _isLocked = true;
       _lockSecondsRemaining = 5;
@@ -183,7 +199,6 @@ class _TerminalScreenState extends State<TerminalScreen> {
       if (mounted) setState(() => _lockSecondsRemaining = i - 1);
     }
 
-    // Al terminar: desbloquea y resetea todo para poder reintentar
     if (mounted) {
       setState(() {
         _isLocked = false;
@@ -193,8 +208,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
-  // ── GEOLOCALIZACIÓN ──────────────────────────────────────────────────────
-  void _iniciarGeoRadar() async {
+  void _initGeoRadar() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -211,27 +225,39 @@ class _TerminalScreenState extends State<TerminalScreen> {
     });
   }
 
-  // ── BUILD ────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    if (_isLocked) return _buildAutodestruccionScreen();
+    if (_isLocked) return _buildSelfDestructScreen();
     if (!_isAuthenticated) return _buildLockScreen();
     return _buildMainTerminal();
   }
 
-  // ── PANTALLA PRINCIPAL ───────────────────────────────────────────────────
   Widget _buildMainTerminal() {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text("SHADOWNET TERMINAL v5.0"),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.power_settings_new),
+            onPressed: () => setState(() => _isAuthenticated = false),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
+              _buildFactionSelector(),
+              const SizedBox(height: 20),
+              _buildCentralFactionLogo(),
               const SizedBox(height: 20),
               const Text(
-                ">>> ESCANEANDO NODOS CERCANOS...",
+                ">>> SCANNING OPERATIONS RADAR...",
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
@@ -244,55 +270,76 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("SHADOWNET OS v4.0.2 [STATUS: INFILTRATED]"),
-        Text("OPERADOR: RESISTENCIA_UNIT_01"),
-        Text("-------------------------------------------"),
-      ],
+  Widget _buildFactionSelector() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: Faction.values.map((faction) {
+        final bool isSelected = widget.currentFaction == faction;
+        return OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: Theme.of(context).colorScheme.primary),
+            backgroundColor: isSelected
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
+                : Colors.transparent,
+          ),
+          onPressed: () => widget.onFactionChanged(faction),
+          child: Text(faction.name.toUpperCase()),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildCentralFactionLogo() {
+    IconData factionIcon;
+    switch (widget.currentFaction) {
+      case Faction.hacker:
+        factionIcon = Icons.terminal;
+        break;
+      case Faction.enforcer:
+        factionIcon = Icons.shield;
+        break;
+      case Faction.ghost:
+        factionIcon = Icons.visibility_off;
+        break;
+    }
+    return Center(
+      child: Icon(
+        factionIcon,
+        size: 100,
+        color: Theme.of(context).colorScheme.primary,
+      ),
     );
   }
 
   Widget _buildRadarList() {
-    if (_currentPosition == null) {
-      return const Text("> BUSCANDO SATÉLITES...");
-    }
-
-    final nodosDetectados = _nodos.map((nodo) {
-      double distancia = Geolocator.distanceBetween(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-        nodo['lat'],
-        nodo['lng'],
-      );
-      return {...nodo, 'distancia': distancia};
-    }).toList();
+    if (_currentPosition == null)
+      return const Text("> ACQUIRING SATELLITE LINK...");
 
     return ListView.builder(
-      itemCount: nodosDetectados.length,
+      itemCount: _nodes.length,
       itemBuilder: (context, index) {
-        final nodo = nodosDetectados[index];
-        final double dist = nodo['distancia'];
-
-        final bool completada = dist <= 500;
+        final node = _nodes[index];
+        final double distance = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          node['lat'],
+          node['lng'],
+        );
+        final bool isAvailable = distance <= 500;
 
         return GestureDetector(
           onTap: () async {
-            if (completada) {
-              // Vibrar si está completada
+            if (isAvailable) {
               if (await Vibration.hasVibrator() ?? false) {
                 Vibration.vibrate(pattern: [0, 200, 200, 600, 200, 200]);
               }
               _completarMision();
             } else {
-              // Mostrar mensaje si no está completada
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      "MISIÓN NO COMPLETADA - FALTAN ${dist.toStringAsFixed(0)} METROS",
+                      "MISIÓN NO COMPLETADA - FALTAN ${distance.toStringAsFixed(0)} METROS",
                     ),
                   ),
                 );
@@ -303,23 +350,21 @@ class _TerminalScreenState extends State<TerminalScreen> {
             margin: const EdgeInsets.only(bottom: 15),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              border: Border.all(
-                color: completada ? Colors.green : const Color(0xFF00FF41),
-              ),
+              border: Border.all(color: Theme.of(context).colorScheme.primary),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "> NODO ${nodo['nombre']}",
-                  style: TextStyle(
-                    color: completada ? Colors.green : Colors.orange,
-                  ),
+                  "> NODE: ${node['name']}",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Text("  OBJETIVO: ${nodo['mision']}"),
-                completada
-                    ? const Text("  MISIÓN COMPLETADA ✅")
-                    : Text("  FALTAN: ${dist.toStringAsFixed(0)} METROS"),
+                Text("  OBJECTIVE: ${node['mission']}"),
+                Text(
+                  isAvailable
+                      ? "  STATUS: UNLOCKED ✅"
+                      : "  RANGE OUT: FALTAN ${distance.toStringAsFixed(0)}m",
+                ),
               ],
             ),
           ),
@@ -339,79 +384,30 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
-  // ── PANTALLA DE BLOQUEO ──────────────────────────────────────────────────
   Widget _buildLockScreen() {
     return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const Icon(Icons.lock, color: Colors.red, size: 50),
+            const SizedBox(height: 20),
             const Text(
-              "SISTEMA BLOQUEADO",
-              style: TextStyle(fontSize: 24, color: Colors.red),
+              "SHADOWNET SECURE ACCESS",
+              style: TextStyle(fontSize: 20),
             ),
-            // Muestra intentos restantes al usuario
             if (_failedAttempts > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(
-                  "INTENTOS FALLIDOS: $_failedAttempts / 3",
-                  style: const TextStyle(color: Colors.orange, fontSize: 13),
-                ),
+              Text(
+                "ATTEMPTS: $_failedAttempts / 3",
+                style: const TextStyle(color: Colors.orange),
               ),
-            // Countdown de bloqueo del sistema Android
-            if (_systemLockSeconds > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Column(
-                  children: [
-                    const Text(
-                      "SISTEMA ANDROID BLOQUEADO",
-                      style: TextStyle(color: Colors.orange, fontSize: 13),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "${_systemLockSeconds}s",
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'RobotoMono',
-                      ),
-                    ),
-                    const Text(
-                      "ESPERA PARA REINTENTAR",
-                      style: TextStyle(color: Colors.orange, fontSize: 11),
-                    ),
-                    const SizedBox(height: 8),
-                    // Barra de progreso visual
-                    SizedBox(
-                      width: 200,
-                      child: LinearProgressIndicator(
-                        value: _systemLockSeconds / 30,
-                        color: Colors.orange,
-                        backgroundColor: Colors.orange.withOpacity(0.2),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Botón deshabilitado durante el countdown
+            const SizedBox(height: 20),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[900],
-              ),
               onPressed: (_isProcessing || _systemLockSeconds > 0)
                   ? null
                   : _authenticate,
               child: Text(
-                _isProcessing
-                    ? "ESCANEANDO..."
-                    : _systemLockSeconds > 0
-                    ? "BLOQUEADO..."
-                    : "VALIDAR ADN",
-                style: const TextStyle(color: Colors.white),
+                _isProcessing ? "SCANNING..." : "VALIDATE BIOMETRICS",
               ),
             ),
           ],
@@ -420,45 +416,17 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
-  // ── PANTALLA DE AUTODESTRUCCIÓN ───────────────────────────────────────────
-  Widget _buildAutodestruccionScreen() {
+  Widget _buildSelfDestructScreen() {
     return Scaffold(
-      backgroundColor: Colors.red[900],
+      backgroundColor: const Color(0xFF300000),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: Colors.white,
-              size: 60,
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              "⚠ PROTOCOLO DE\nAUTODESTRUCCIÓN INICIADO",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 2,
-                fontFamily: 'RobotoMono',
-              ),
-            ),
-            const SizedBox(height: 32),
+            const Icon(Icons.gavel, color: Colors.white, size: 60),
             Text(
-              "$_lockSecondsRemaining",
-              style: const TextStyle(
-                fontSize: 80,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontFamily: 'RobotoMono',
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "SISTEMA SE REINICIA EN...",
-              style: TextStyle(color: Colors.white70, letterSpacing: 1.5),
+              "SELF-DESTRUCT SEQUENCE: $_lockSecondsRemaining",
+              style: const TextStyle(fontSize: 20, color: Colors.white),
             ),
           ],
         ),
@@ -468,7 +436,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   Widget _buildFooter() {
     return Text(
-      "> POSICIÓN: ${_currentPosition?.latitude.toStringAsFixed(4)}, ${_currentPosition?.longitude.toStringAsFixed(4)}",
+      "> GPS: ${_currentPosition?.latitude.toStringAsFixed(4)}, ${_currentPosition?.longitude.toStringAsFixed(4)}",
       style: const TextStyle(fontSize: 10, color: Colors.grey),
     );
   }
