@@ -166,12 +166,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
   Future<void> _handleSystemLock(bool isPermanent) async {
     if (!mounted) return;
     if (isPermanent) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "HARDWARE CRITICAL LOCKOUT - CLEAR PHONE PASSCODE FIRST",
-          ),
-        ),
+      _showAccessibleSnackBar(
+        "HARDWARE CRITICAL LOCKOUT - CLEAR PHONE PASSCODE FIRST",
       );
       return;
     }
@@ -235,14 +231,22 @@ class _TerminalScreenState extends State<TerminalScreen> {
   Widget _buildMainTerminal() {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("SHADOWNET TERMINAL v5.0"),
+        title: Semantics(
+          label: "Encabezado de la Terminal Suprema",
+          child: const Text("SHADOWNET TERMINAL v5.0"),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.power_settings_new),
-            onPressed: () => setState(() => _isAuthenticated = false),
+          Semantics(
+            button: true,
+            label:
+                "Botón: Finalizar misión y borrar rastro", // Requerimiento WCAG explícito
+            child: IconButton(
+              icon: const Icon(Icons.power_settings_new),
+              onPressed: () => setState(() => _isAuthenticated = false),
+            ),
           ),
         ],
       ),
@@ -271,42 +275,58 @@ class _TerminalScreenState extends State<TerminalScreen> {
   }
 
   Widget _buildFactionSelector() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: Faction.values.map((faction) {
-        final bool isSelected = widget.currentFaction == faction;
-        return OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: Theme.of(context).colorScheme.primary),
-            backgroundColor: isSelected
-                ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
-                : Colors.transparent,
-          ),
-          onPressed: () => widget.onFactionChanged(faction),
-          child: Text(faction.name.toUpperCase()),
-        );
-      }).toList(),
+    return Semantics(
+      label: "Selector de facciones dinámicas de agente",
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: Faction.values.map((faction) {
+          final bool isSelected = widget.currentFaction == faction;
+          return OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Theme.of(context).colorScheme.primary),
+              backgroundColor: isSelected
+                  ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
+                  : Colors.transparent,
+            ),
+            onPressed: () => widget.onFactionChanged(faction),
+            child: Text(faction.name.toUpperCase()),
+          );
+        }).toList(),
+      ),
     );
   }
 
   Widget _buildCentralFactionLogo() {
     IconData factionIcon;
+    String description;
+
     switch (widget.currentFaction) {
       case Faction.hacker:
         factionIcon = Icons.terminal;
+        description =
+            "Emblema central: Facción Hacker, especialistas en infiltración digital informática";
         break;
       case Faction.enforcer:
         factionIcon = Icons.shield;
+        description =
+            "Emblema central: Facción Enforcer, especialistas en combate y defensa táctica de hardware";
         break;
       case Faction.ghost:
         factionIcon = Icons.visibility_off;
+        description =
+            "Emblema central: Facción Ghost, especialistas en sigilo y operaciones encubiertas de la red";
         break;
     }
+
     return Center(
-      child: Icon(
-        factionIcon,
-        size: 100,
-        color: Theme.of(context).colorScheme.primary,
+      child: Semantics(
+        image: true,
+        label: description,
+        child: Icon(
+          factionIcon,
+          size: 100,
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
@@ -327,45 +347,52 @@ class _TerminalScreenState extends State<TerminalScreen> {
         );
         final bool isAvailable = distance <= 500;
 
-        return GestureDetector(
-          onTap: () async {
-            if (isAvailable) {
-              if (await Vibration.hasVibrator() ?? false) {
-                Vibration.vibrate(pattern: [0, 200, 200, 600, 200, 200]);
-              }
-              _completarMision();
-            } else {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      "MISIÓN NO COMPLETADA - FALTAN ${distance.toStringAsFixed(0)} METROS",
+        return Semantics(
+          container: true,
+          label:
+              "Nodo táctico: ${node['name']}. Objetivo: ${node['mission']}. Distancia: ${distance.toStringAsFixed(0)} metros.",
+          child: GestureDetector(
+            onTap: () async {
+              if (isAvailable) {
+                if (await Vibration.hasVibrator() ?? false) {
+                  Vibration.vibrate(pattern: [0, 200, 200, 600, 200, 200]);
+                }
+                _completarMision();
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        "MISIÓN NO COMPLETADA - FALTAN ${distance.toStringAsFixed(0)} METROS",
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
               }
-            }
-          },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 15),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).colorScheme.primary),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "> NODE: ${node['name']}",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 15),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-                Text("  OBJECTIVE: ${node['mission']}"),
-                Text(
-                  isAvailable
-                      ? "  STATUS: UNLOCKED ✅"
-                      : "  RANGE OUT: FALTAN ${distance.toStringAsFixed(0)}m",
-                ),
-              ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "> NODE: ${node['name']}",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text("  OBJECTIVE: ${node['mission']}"),
+                  Text(
+                    isAvailable
+                        ? "  STATUS: UNLOCKED ✅"
+                        : "  RANGE OUT: FALTAN ${distance.toStringAsFixed(0)}m",
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -390,7 +417,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock, color: Colors.red, size: 50),
+            Semantics(
+              label: "Advertencia: Sistema encriptado",
+              child: const Icon(Icons.lock, color: Colors.red, size: 50),
+            ),
             const SizedBox(height: 20),
             const Text(
               "SHADOWNET SECURE ACCESS",
@@ -402,12 +432,16 @@ class _TerminalScreenState extends State<TerminalScreen> {
                 style: const TextStyle(color: Colors.orange),
               ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: (_isProcessing || _systemLockSeconds > 0)
-                  ? null
-                  : _authenticate,
-              child: Text(
-                _isProcessing ? "SCANNING..." : "VALIDATE BIOMETRICS",
+            Semantics(
+              button: true,
+              label: "Botón: Iniciar escaneo biométrico de huella dactilar",
+              child: ElevatedButton(
+                onPressed: (_isProcessing || _systemLockSeconds > 0)
+                    ? null
+                    : _authenticate,
+                child: Text(
+                  _isProcessing ? "SCANNING..." : "VALIDATE BIOMETRICS",
+                ),
               ),
             ),
           ],
@@ -423,7 +457,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.gavel, color: Colors.white, size: 60),
+            Semantics(
+              label: "Alerta Crítica: Autodestrucción en curso",
+              child: const Icon(Icons.gavel, color: Colors.white, size: 60),
+            ),
             Text(
               "SELF-DESTRUCT SEQUENCE: $_lockSecondsRemaining",
               style: const TextStyle(fontSize: 20, color: Colors.white),
@@ -435,9 +472,24 @@ class _TerminalScreenState extends State<TerminalScreen> {
   }
 
   Widget _buildFooter() {
-    return Text(
-      "> GPS: ${_currentPosition?.latitude.toStringAsFixed(4)}, ${_currentPosition?.longitude.toStringAsFixed(4)}",
-      style: const TextStyle(fontSize: 10, color: Colors.grey),
+    return Semantics(
+      label: "Coordenadas de telemetría GPS del operador actual",
+      child: Text(
+        "> GPS: ${_currentPosition?.latitude.toStringAsFixed(4)}, ${_currentPosition?.longitude.toStringAsFixed(4)}",
+        style: const TextStyle(fontSize: 10, color: Colors.grey),
+      ),
+    );
+  }
+
+  void _showAccessibleSnackBar(String executionMessage) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Semantics(
+          liveRegion: true,
+          label: executionMessage,
+          child: Text(executionMessage),
+        ),
+      ),
     );
   }
 }
